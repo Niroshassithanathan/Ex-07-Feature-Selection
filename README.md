@@ -22,149 +22,148 @@ Save the data to the file
 Developed by:NIROSHA.S
 Registor No :212222230097
 ~~~.py
-from sklearn.datasets import load_boston
+#importing library
 import pandas as pd
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 import seaborn as sns
-import statsmodels.api as sm
-%matplotlib inline
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.feature_selection import RFE
-from sklearn.linear_model import RidgeCV, LassoCV, Ridge, Lasso
-
-from sklearn.datasets import load_boston
-boston = load_boston()
-
-print(boston['DESCR'])
-
 import pandas as pd
-df = pd.DataFrame(boston['data'] )
-df.head()
+import matplotlib.pyplot as plt
 
-df.columns = boston['feature_names']
-df.head()
+# data loading
+data = pd.read_csv('/content/titanic_dataset.csv')
+data
+data.tail()
+data.isnull().sum()
+data.describe()
 
-df['PRICE']= boston['target']
-df.head()
+#now, we are checking start with a pairplot, and check for missing values
+sns.heatmap(data.isnull(),cbar=False)
 
-df.info()
+#Data Cleaning and Data Drop Process
+data['Fare'] = data['Fare'].fillna(data['Fare'].dropna().median())
+data['Age'] = data['Age'].fillna(data['Age'].dropna().median())
 
-plt.figure(figsize=(10, 8))
-sns.distplot(df['PRICE'], rug=True)
+# Change to categoric column to numeric
+data.loc[data['Sex']=='male','Sex']=0
+data.loc[data['Sex']=='female','Sex']=1
+
+# instead of nan values
+data['Embarked']=data['Embarked'].fillna('S')
+
+# Change to categoric column to numeric
+data.loc[data['Embarked']=='S','Embarked']=0
+data.loc[data['Embarked']=='C','Embarked']=1
+data.loc[data['Embarked']=='Q','Embarked']=2
+
+#Drop unnecessary columns
+drop_elements = ['Name','Cabin','Ticket']
+data = data.drop(drop_elements, axis=1)
+
+data.head(11)
+
+#heatmap for train dataset
+f,ax = plt.subplots(figsize=(5, 5))
+sns.heatmap(data.corr(), annot=True, linewidths=.5, fmt= '.1f',ax=ax)
+
+# Now, data is clean and read to a analyze
+sns.heatmap(data.isnull(),cbar=False)
+
+# how many people survived or not... %60 percent died %40 percent survived
+fig = plt.figure(figsize=(18,6))
+data.Survived.value_counts(normalize=True).plot(kind='bar',alpha=0.5)
 plt.show()
 
-#FILTER METHODS
-X=df.drop("PRICE",1)
-y=df["PRICE"]
+#Age with survived
+plt.scatter(data.Survived, data.Age, alpha=0.1)
+plt.title("Age with Survived")
+plt.show()
 
-from sklearn.feature_selection import SelectKBest, chi2
-X, y = load_boston(return_X_y=True)
-X.shape
+#Count the pessenger class
+fig = plt.figure(figsize=(18,6))
+data.Pclass.value_counts(normalize=True).plot(kind='bar',alpha=0.5)
+plt.show()
 
-#1.VARIANCE THRESHOLD
-from sklearn.feature_selection import VarianceThreshold
-selector = VarianceThreshold()
-selector.fit_transform(X)
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 
-#2.INFORMATION GAIN/MUTUAL INFORMATION
-from sklearn.feature_selection import mutual_info_regression
-mi = mutual_info_regression(X, y);
-mi = pd.Series(mi)
-mi.sort_values(ascending=False)
-mi.sort_values(ascending=False).plot.bar(figsize=(10, 4))
+X = data.drop("Survived",axis=1)
+y = data["Survived"]
 
-#3.SELECTKBEST METHOD
-from sklearn.feature_selection import f_classif
-from sklearn.feature_selection import SelectKBest,SelectPercentile
-skb = SelectKBest(score_func=f_classif, k=2) 
-X_data_new = skb.fit_transform(X, y)
-print('Number of features before feature selection: {}'.format(X.shape[1]))
-print('Number of features after feature selection: {}'.format(X_data_new.shape[1]))
+mdlsel = SelectKBest(chi2, k=5)
+mdlsel.fit(X,y)
+ix = mdlsel.get_support()
+data2 = pd.DataFrame(mdlsel.transform(X), columns = X.columns.values[ix]) # en iyi leri aldi... 7 tane...
+data2.head(11)
 
-#4.CORRELATION COEFFICIENT
-cor=df.corr()
-sns.heatmap(cor,annot=True)
-
-#5.MEAN ABSOLUTE DIFFERENCE
-mad=np.sum(np.abs(X-np.mean(X,axis=0)),axis=0)/X.shape[0]
-plt.bar(np.arange(X.shape[1]),mad,color='teal')
-
-#Processing data into array type.
-from sklearn import preprocessing
-lab = preprocessing.LabelEncoder()
-y_transformed = lab.fit_transform(y)
-print(y_transformed)
-
-#6.CHI SQUARE TEST
-X = X.astype(int)
-chi2_selector = SelectKBest(chi2, k=2)
-X_kbest = chi2_selector.fit_transform(X, y_transformed)
-print('Original number of features:', X.shape[1])
-print('Reduced number of features:', X_kbest.shape[1])
-
-#7.SELECT PERCENTILE METHOD
-X_new = SelectPercentile(chi2, percentile=10).fit_transform(X, y_transformed)
-X_new.shape
-
-#WRAPPER METHOD
-#1.FORWARD FEATURE SELECTION
-
-from mlxtend.feature_selection import SequentialFeatureSelector as SFS
-from sklearn.linear_model import LinearRegression
-sfs = SFS(LinearRegression(),
-          k_features=10,
-          forward=True,
-          floating=False,
-          scoring = 'r2',
-          cv = 0)
-sfs.fit(X, y)
-sfs.k_feature_names_
-
-#2.BACKWARD FEATURE ELIMINATION
-
-sbs = SFS(LinearRegression(),
-         k_features=10,
-         forward=False,
-         floating=False,
-         cv=0)
-sbs.fit(X, y)
-sbs.k_feature_names_
-
-#3.BI-DIRECTIONAL ELIMINATION
-
-sffs = SFS(LinearRegression(),
-         k_features=(3,7),
-         forward=True,
-         floating=True,
-         cv=0)
-sffs.fit(X, y)
-sffs.k_feature_names_
-
-#4.RECURSIVE FEATURE SELECTION
-from sklearn.feature_selection import RFE
-lr=LinearRegression()
-rfe=RFE(lr,n_features_to_select=7)
-rfe.fit(X, y)
-print(X.shape, y.shape)
-rfe.transform(X)
-rfe.get_params(deep=True)
-rfe.support_
-rfe.ranking_
-
-#EMBEDDED METHOD
-
-#1.RANDOM FOREST IMPORTANCE
 from sklearn.ensemble import RandomForestClassifier
-model = RandomForestClassifier().fit(X,y_transformed)
-importances=model.feature_importances_
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 
-final_df=pd.DataFrame({"Features":pd.DataFrame(X).columns,"Importances":importances})
-final_df.set_index("Importances")
-final_df=final_df.sort_values("Importances")
-final_df.plot.bar(color="teal")
+target = data['Survived'].values
+data_features_names = ['Pclass','Sex','SibSp','Parch','Fare','Embarked','Age']
+features = data[data_features_names].values
+
+#Build test and training test
+X_train,X_test,y_train,y_test = train_test_split(features,target,test_size=0.3,random_state=42)
+
+my_forest = RandomForestClassifier(max_depth=5, min_samples_split=10, n_estimators=500, random_state=5,criterion = 'entropy')
+
+
+my_forest_ = my_forest.fit(X_train,y_train)
+target_predict=my_forest_.predict(X_test)
+
+print("Random forest score: ",accuracy_score(y_test,target_predict))
+
+from sklearn.metrics import mean_squared_error, r2_score
+print ("MSE    :",mean_squared_error(y_test,target_predict))
+print ("R2     :",r2_score(y_test,target_predict))
 ~~~
 
 # OUPUT
+## Dataset:
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/ba7340f1-740a-4bf3-92fe-da1fc805590e)
+
+## Tail:
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/2d0e9ad0-503b-48f4-a1e2-48aec47361b1)
+
+## Null Values:
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/18a101ab-7333-4b68-8330-eeb5c4810997)
+
+## Describe:
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/f73f80d2-27b3-4404-a8d2-42b980373071)
+
+## missing values::
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/95d54f3f-9778-4b31-bb39-97ba5f73a05f)
+
+## Data after cleaning:
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/7cd9e88a-e4e9-48dd-ae01-7aecb0c61397)
+
+## Data on Heatmap:
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/356dc323-f324-4181-aba8-589d2f3d4596)
+
+## Report of (people survived & Died):
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/64508119-74da-4006-91ce-7c767bcf162c)
+
+## Report of Survived People's Age:
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/c0afdf2e-b2b4-486f-b6d4-a8e8c457e3b8)
+
+## Report of pessengers:
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/5a62bbd1-dddb-4995-8118-b7544ea1ea94)
+
+## Report:
+![image](https://github.com/Niroshassithanathan/Ex-07-Feature-Selection/assets/121418437/db1ca6be-c979-4e2d-a287-c33b16312446)
+
+## RESULT:
+Thus, Sucessfully performed the various feature selection techniques on a given dataset.
+
+
+
+
+
+
+
+
+
+
+
+
