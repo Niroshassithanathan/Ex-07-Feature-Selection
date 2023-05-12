@@ -117,7 +117,7 @@ print("Random forest score: ",accuracy_score(y_test,target_predict))
 from sklearn.metrics import mean_squared_error, r2_score
 print ("MSE    :",mean_squared_error(y_test,target_predict))
 print ("R2     :",r2_score(y_test,target_predict))
-~~~
+```
 
 # OUPUT
 ## Dataset:
